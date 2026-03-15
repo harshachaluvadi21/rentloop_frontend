@@ -46,7 +46,7 @@ export default function AuthModal({ mode, onClose }) {
             <div style={{ marginTop:14, padding:13, background:'rgba(240,124,43,.06)', border:'1px solid rgba(240,124,43,.15)', borderRadius:10, fontSize:'.76rem', color:'var(--muted)' }}>
               <strong style={{ color:'var(--orange)' }}>Demo accounts:</strong><br />
               <span style={{ color:'var(--muted)' }}>owner@demo.com / demo123 (Kukatpally, Hyd) · renter@demo.com / demo123 (Secunderabad, Hyd)</span><br />
-              <strong style={{ color:'var(--orange)' }}>Admin:</strong> harsha@admin.com / harsha@12345
+              <strong style={{ color:'var(--orange)' }}>Admin:</strong> harsha@admin.com / demo123
             </div>
           </>
         ) : (
