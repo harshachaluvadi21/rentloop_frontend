@@ -44,9 +44,9 @@ export default function AuthModal({ mode, onClose }) {
             </button>
             <div className="msw">No account? <a onClick={() => setView('register')}>Create one</a></div>
             <div style={{ marginTop:14, padding:13, background:'rgba(240,124,43,.06)', border:'1px solid rgba(240,124,43,.15)', borderRadius:10, fontSize:'.76rem', color:'var(--muted)' }}>
-              <strong style={{ color:'var(--orange)' }}>Demo accounts:</strong><br />
-              <span style={{ color:'var(--muted)' }}>owner@demo.com / demo123 (Kukatpally, Hyd) · renter@demo.com / demo123 (Secunderabad, Hyd)</span><br />
-              <strong style={{ color:'var(--orange)' }}>Admin:</strong> harsha@admin.com / demo123
+              <strong style={{ color:'var(--orange)' }}>Demo accounts (PW: demo123):</strong><br />
+              <span style={{ color:'var(--muted)' }}>owner@demo.com (Arjun Reddy) · renter@demo.com (Pandu / Pokiri-Mahesh)</span><br />
+              <span style={{ color:'var(--muted)' }}>ravi@rentloop.com (Rishi / Maharshi-Mahesh) · harsha@admin.com (Baahubali)</span>
             </div>
           </>
         ) : (
