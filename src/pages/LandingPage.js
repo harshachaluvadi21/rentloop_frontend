@@ -58,7 +58,8 @@ function useTypewriter() {
 
 export default function LandingPage() {
   const [authModal, setAuthModal] = useState(null);
-  const [stats, setStats] = useState({ items: 0, users: 0, rentals: 0 });
+  const [stats, setStats] = useState({ items: 500, users: 2000, rentals: 1000 });
+  const [statsLoading, setStatsLoading] = useState(true);
   const typedText = useTypewriter();
 
   useEffect(() => {
@@ -72,13 +73,17 @@ export default function LandingPage() {
   }, []);
 
   useEffect(() => {
+    setStatsLoading(true);
     api.get('/public/stats').then(r => {
       setStats({
         items: r.data.totalItems,
         users: r.data.totalUsers,
         rentals: r.data.completedRentals
       });
-    }).catch(() => {});
+      setStatsLoading(false);
+    }).catch(() => {
+      setStatsLoading(false);
+    });
   }, []);
 
   const doubled = [...TICKER_ITEMS, ...TICKER_ITEMS];
@@ -120,8 +125,8 @@ export default function LandingPage() {
             [stats.rentals > 0 ? (stats.rentals > 999 ? (stats.rentals/1000).toFixed(1)+'K+' : stats.rentals+'+') : '0+', 'Completed Rentals'],
             ['₹0', 'Listing Fee'],
           ].map(([v,l]) => (
-            <div key={l} style={{textAlign:'center'}}>
-              <div style={{fontFamily:"'Fraunces',serif",fontSize:'2rem',fontWeight:700,color:'#fff'}}>{v}</div>
+            <div key={l} style={{textAlign:'center', transition: 'opacity 0.3s ease', opacity: statsLoading ? 0.6 : 1}} className={statsLoading ? 'btn-pulse' : ''}>
+              <div style={{fontFamily:"'Fraunces',serif",fontSize:'2rem',fontWeight:700,color:'#fff'}}>{statsLoading && v === '0+' ? '...' : v}</div>
               <div style={{fontSize:'.72rem',color:'var(--muted2)',textTransform:'uppercase',letterSpacing:'.08em',marginTop:3}}>{l}</div>
             </div>
           ))}
