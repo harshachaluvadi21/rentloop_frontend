@@ -72,7 +72,13 @@ export default function LandingPage() {
   }, []);
 
   useEffect(() => {
-    api.get('/items/browse').then(r => setStats(s => ({ ...s, items: r.data.length }))).catch(() => {});
+    api.get('/public/stats').then(r => {
+      setStats({
+        items: r.data.totalItems,
+        users: r.data.totalUsers,
+        rentals: r.data.completedRentals
+      });
+    }).catch(() => {});
   }, []);
 
   const doubled = [...TICKER_ITEMS, ...TICKER_ITEMS];
@@ -109,9 +115,9 @@ export default function LandingPage() {
         {/* Stats row */}
         <div className="fu fd5" style={{display:'flex',gap:48,flexWrap:'wrap',justifyContent:'center',marginBottom:56}}>
           {[
-            [stats.items > 0 ? stats.items+'+' : '500+', 'Items Listed'],
-            ['2K+', 'Members'],
-            ['1K+', 'Completed Rentals'],
+            [stats.items > 0 ? stats.items+'+' : '0+', 'Items Listed'],
+            [stats.users > 0 ? (stats.users > 999 ? (stats.users/1000).toFixed(1)+'K+' : stats.users+'+') : '0+', 'Members'],
+            [stats.rentals > 0 ? (stats.rentals > 999 ? (stats.rentals/1000).toFixed(1)+'K+' : stats.rentals+'+') : '0+', 'Completed Rentals'],
             ['₹0', 'Listing Fee'],
           ].map(([v,l]) => (
             <div key={l} style={{textAlign:'center'}}>
