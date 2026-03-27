@@ -16,6 +16,7 @@ const iChart=()=><svg width="16" height="16" viewBox="0 0 24 24" fill="none" str
 const iBell=()=><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0"/></svg>;
 const iGear=()=><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 010 14.14M4.93 4.93a10 10 0 000 14.14"/></svg>;
 const iUser=()=><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>;
+const iShield=()=><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>;
 
 /* ── Admin Overview ── */
 function AdminOverview({ onNav }) {
@@ -598,12 +599,206 @@ function AdminSettings() {
   );
 }
 
+/* ── Admin AI Monitoring Panel ── */
+function AdminAIMonitoring() {
+  const [candidates, setCandidates] = useState([]);
+  const [stats, setStats] = useState({});
+  const [statusFilter, setStatusFilter] = useState('PENDING');
+  const [loading, setLoading] = useState(true);
+  const [triggering, setTriggering] = useState(false);
+  const { toast } = useAuth();
+
+  const loadCandidates = (status = statusFilter) => {
+    setLoading(true);
+    api.get(`/admin/ai/blacklist-candidates?status=${status}`)
+      .then(r => setCandidates(r.data))
+      .catch(() => toast('Failed to load candidates', 'e'))
+      .finally(() => setLoading(false));
+  };
+
+  const loadStats = () => {
+    api.get('/admin/ai/stats').then(r => setStats(r.data)).catch(() => {});
+  };
+
+  useEffect(() => { loadCandidates(); loadStats(); }, []);
+
+  const handleFilterChange = (s) => { setStatusFilter(s); loadCandidates(s); };
+
+  const suspend = async (id) => {
+    if (!window.confirm('Suspend this user? This will restrict their access.')) return;
+    try {
+      await api.post(`/admin/ai/suspend-user/${id}`);
+      toast('User suspended ✓', 's');
+      loadCandidates(); loadStats();
+    } catch { toast('Failed to suspend user', 'e'); }
+  };
+
+  const reject = async (id) => {
+    try {
+      await api.post(`/admin/ai/reject-flag/${id}`);
+      toast('Flag rejected — user cleared ✓', 's');
+      loadCandidates(); loadStats();
+    } catch { toast('Failed to reject flag', 'e'); }
+  };
+
+  const triggerAnalysis = async () => {
+    setTriggering(true);
+    try {
+      await api.post('/admin/ai/trigger-analysis');
+      toast('AI analysis triggered ✓ — refreshing...', 's');
+      setTimeout(() => { loadCandidates(); loadStats(); }, 1500);
+    } catch { toast('Analysis failed', 'e'); }
+    finally { setTriggering(false); }
+  };
+
+  const ratingColor = (avg) => {
+    if (!avg) return 'var(--muted)';
+    if (avg < 2) return '#f87171';
+    if (avg < 3) return '#fbbf24';
+    return '#4ade80';
+  };
+
+  const statusBadge = (s) => {
+    if (s === 'SUSPENDED') return 'ab-red';
+    if (s === 'REJECTED') return 'ab-green';
+    return 'ab-amber';
+  };
+
+  return (
+    <div>
+      <div className="ph">
+        <div>
+          <div className="ph-title">AI Rating Monitor</div>
+          <div className="ph-sub">Intelligent flagging powered by pattern analysis · Auto-runs every 6 hours</div>
+        </div>
+        <button className="btn btn-primary btn-sm" onClick={triggerAnalysis} disabled={triggering}>
+          {triggering ? 'Analyzing…' : '⚡ Run Analysis Now'}
+        </button>
+      </div>
+
+      {/* Stats Row */}
+      <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12,marginBottom:22}}>
+        {[
+          ['Pending Flags', stats.pendingFlags ?? '…', 'Awaiting admin review', '#fbbf24'],
+          ['Suspended', stats.suspendedUsers ?? '…', 'Users suspended by AI alert', '#f87171'],
+          ['Rejected Flags', stats.rejectedFlags ?? '…', 'Cleared by admin', '#4ade80'],
+          ['Total Processed', stats.totalProcessed ?? '…', 'All-time AI analysis results', ''],
+        ].map(([l,v,s,c]) => (
+          <div key={l} className="admin-metric">
+            <div className="am-lbl">{l}</div>
+            <div className="am-val" style={c?{color:c}:{}}>{v}</div>
+            <div className="am-delta" style={{color:'var(--muted)'}}>{s}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* How It Works */}
+      <div style={{background:'rgba(240,124,43,.05)',border:'1px solid rgba(240,124,43,.18)',borderRadius:14,padding:'14px 18px',marginBottom:20,display:'flex',gap:24,flexWrap:'wrap'}}>
+        <div style={{fontSize:'.82rem',color:'var(--orange)',fontWeight:600,marginBottom:4,width:'100%'}}>🤖 AI Detection Rules</div>
+        {[
+          ['📊 Avg Rating < 2.5', 'Triggered after 3+ reviews'],
+          ['🔁 3+ Consecutive Low', 'Ratings of ≤ 2 in a row'],
+          ['💬 Negative Sentiment', 'Keywords: scam, broken, fraud…'],
+        ].map(([t,d]) => (
+          <div key={t} style={{fontSize:'.8rem'}}>
+            <div style={{fontWeight:600,color:'#fff'}}>{t}</div>
+            <div style={{color:'var(--muted)',marginTop:2}}>{d}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Candidates Table */}
+      <div className="card-box">
+        <div className="fbar" style={{marginBottom:14}}>
+          <span style={{fontWeight:600,color:'#fff',fontSize:'.9rem',flex:1}}>Flagged Users</span>
+          {['PENDING','SUSPENDED','REJECTED','ALL'].map(s => (
+            <button key={s}
+              className={`abt${statusFilter===s?' success':''}`}
+              onClick={() => handleFilterChange(s)}
+              style={statusFilter===s?{background:'rgba(46,125,79,.25)',borderColor:'#2E7D4F'}:{}}
+            >{s.charAt(0)+s.slice(1).toLowerCase()}</button>
+          ))}
+        </div>
+
+        {loading ? (
+          <div style={{textAlign:'center',padding:40,color:'var(--muted)',fontSize:'.88rem'}}>Loading…</div>
+        ) : !candidates.length ? (
+          <div style={{textAlign:'center',padding:40}}>
+            <div style={{fontSize:'2.5rem',marginBottom:10}}>🛡️</div>
+            <div style={{color:'#fff',fontWeight:600,marginBottom:6}}>No {statusFilter.toLowerCase()} flags</div>
+            <div style={{color:'var(--muted)',fontSize:'.84rem'}}>The AI monitoring system hasn't flagged any users yet, or there are no matches for this filter.</div>
+          </div>
+        ) : (
+          <table className="a-table">
+            <thead><tr>
+              <th>User</th><th>Role</th><th>Avg Rating</th>
+              <th>Reviews</th><th>Consecutive Low</th>
+              <th>AI Reason</th><th>Flagged On</th><th>Status</th><th>Actions</th>
+            </tr></thead>
+            <tbody>
+              {candidates.map(c => (
+                <tr key={c.id}>
+                  <td>
+                    <div style={{display:'flex',alignItems:'center',gap:8}}>
+                      <div className="av" style={{background:'#5B3FA6',width:28,height:28,fontSize:'.7rem'}}>
+                        {(c.userName||'?')[0].toUpperCase()}
+                      </div>
+                      <div>
+                        <div style={{fontWeight:500,fontSize:'.84rem'}}>{c.userName}</div>
+                        <div style={{fontSize:'.72rem',color:'var(--muted)'}}>{c.userEmail}</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td><span className="abadge ab-gray">{c.userRole}</span></td>
+                  <td>
+                    <span style={{fontWeight:700,color:ratingColor(c.avgRating),fontSize:'.9rem'}}>
+                      {c.avgRating ? c.avgRating.toFixed(1) : '—'} ⭐
+                    </span>
+                  </td>
+                  <td style={{color:'var(--muted)',textAlign:'center'}}>{c.totalReviews ?? '—'}</td>
+                  <td style={{color:c.consecutiveLowRatings>=3?'#f87171':'var(--muted)',textAlign:'center',fontWeight:c.consecutiveLowRatings>=3?700:400}}>
+                    {c.consecutiveLowRatings ?? 0}
+                  </td>
+                  <td style={{maxWidth:260}}>
+                    <div style={{fontSize:'.75rem',color:'#fbbf24',lineHeight:1.4,maxHeight:48,overflow:'hidden',textOverflow:'ellipsis'}}>
+                      {c.aiReason || '—'}
+                    </div>
+                  </td>
+                  <td style={{fontSize:'.76rem',color:'var(--muted2)',whiteSpace:'nowrap'}}>
+                    {c.createdAt ? c.createdAt.substring(0,10) : '—'}
+                  </td>
+                  <td><span className={`abadge ${statusBadge(c.status)}`}>{c.status}</span></td>
+                  <td>
+                    {c.status === 'PENDING' && (
+                      <div style={{display:'flex',gap:5}}>
+                        <button className="abt danger" onClick={() => suspend(c.id)}>Suspend</button>
+                        <button className="abt success" onClick={() => reject(c.id)}>Ignore</button>
+                      </div>
+                    )}
+                    {c.status !== 'PENDING' && (
+                      <span style={{fontSize:'.76rem',color:'var(--muted2)'}}>Resolved</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /* ── Admin Dashboard Main ── */
 export default function AdminDashboard() {
   const { user }=useAuth();
   const [panel,setPanel]=useState('overview');
   const [pendingCount,setPendingCount]=useState(0);
-  useEffect(()=>{ api.get('/admin/items').then(r=>setPendingCount(r.data.filter(i=>!i.approved).length)).catch(()=>{}); },[panel]);
+  const [aiFlagCount,setAiFlagCount]=useState(0);
+  useEffect(()=>{
+    api.get('/admin/items').then(r=>setPendingCount(r.data.filter(i=>!i.approved).length)).catch(()=>{});
+    api.get('/admin/ai/stats').then(r=>setAiFlagCount(r.data.pendingFlags||0)).catch(()=>{});
+  },[panel]);
   const links=[
     {icon:iHome(),lbl:'Dashboard',p:'overview'},
     {icon:iChart(),lbl:'Analytics',p:'analytics'},
@@ -612,7 +807,8 @@ export default function AdminDashboard() {
     {icon:iBox(),lbl:'Listings',p:'items',badge:pendingCount||null},
     {icon:iClip(),lbl:'Rentals',p:'rentals'},
     {icon:iStar(),lbl:'Reviews',p:'reviews'},
-    {sec:'System'},
+    {sec:'AI & System'},
+    {icon:iShield(),lbl:'AI Monitor',p:'ai-monitor',badge:aiFlagCount||null},
     {icon:iBell(),lbl:'Alerts',p:'alerts',badge:5},
     {icon:iMega(),lbl:'Announcements',p:'announcements'},
     {icon:iGear(),lbl:'Settings',p:'settings'},
@@ -624,6 +820,7 @@ export default function AdminDashboard() {
     if(panel==='items') return <AdminItems />;
     if(panel==='rentals') return <AdminRentals />;
     if(panel==='reviews') return <AdminReviews />;
+    if(panel==='ai-monitor') return <AdminAIMonitoring />;
     if(panel==='alerts') return <AdminAlerts onNav={setPanel} />;
     if(panel==='announcements') return <AdminAnnouncements />;
     if(panel==='settings') return <AdminSettings />;
