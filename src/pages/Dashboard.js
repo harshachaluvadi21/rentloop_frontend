@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import api from '../utils/api';
 import Navbar from '../components/Navbar';
 import ProfilePanel from './ProfilePanel';
 import { OwnerOverview, MyListings, AddItem, RequestsPanel, EarningsPanel, CalendarPanel, UserAnnouncements } from './OwnerPanels';
@@ -17,48 +18,104 @@ const iUser=()=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strok
 const iMega=()=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>;
 
 export default function Dashboard() {
-  const { user }=useAuth();
-  const [panel,setPanel]=useState('overview');
-  const isOwner=user.role==='owner';
-  const ownerLinks=[{icon:iHome(),lbl:'Overview',p:'overview'},{icon:iBox(),lbl:'My Listings',p:'my-items'},{icon:iPlus(),lbl:'Add Item',p:'add-item'},{icon:iClip(),lbl:'Requests',p:'requests'},{icon:iCal(),lbl:'Availability',p:'calendar'},{icon:iMoney(),lbl:'Earnings',p:'earnings'},{icon:iMega(),lbl:'Announcements',p:'user-announcements'}];
-  const renterLinks=[{icon:iHome(),lbl:'Overview',p:'overview'},{icon:iSearch(),lbl:'Browse Items',p:'browse'},{icon:iClip(),lbl:'My Bookings',p:'bookings'},{icon:iStar(),lbl:'Reviews',p:'reviews'},{icon:iMega(),lbl:'Announcements',p:'user-announcements'}];
-  const links=isOwner?ownerLinks:renterLinks;
-  const renderPanel=()=>{
-    if(isOwner){
-      if(panel==='overview') return <OwnerOverview onNav={setPanel} />;
-      if(panel==='my-items') return <MyListings onNav={setPanel} />;
-      if(panel==='add-item') return <AddItem onNav={setPanel} />;
-      if(panel==='requests') return <RequestsPanel />;
-      if(panel==='calendar') return <CalendarPanel />;
-      if(panel==='earnings') return <EarningsPanel />;
-      if(panel==='user-announcements') return <UserAnnouncements />;
-      if(panel==='profile') return <ProfilePanel />;
+  const { user } = useAuth();
+  const [panel, setPanel] = useState('overview');
+  const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const isOwner = user.role === 'owner';
+
+  useEffect(() => {
+    if (isOwner) {
+      api.get('/rentals/requests')
+        .then(r => {
+          const pending = r.data.filter(x => x.status === 'pending').length;
+          setPendingRequestsCount(pending);
+        })
+        .catch(() => {});
+    }
+  }, [isOwner, panel]);
+
+  const ownerLinks = [
+    { icon: iHome(), lbl: 'Overview', p: 'overview' },
+    { icon: iBox(), lbl: 'My Listings', p: 'my-items' },
+    { icon: iPlus(), lbl: 'Add Item', p: 'add-item' },
+    { icon: iClip(), lbl: 'Requests', p: 'requests', badge: pendingRequestsCount > 0 ? pendingRequestsCount : null },
+    { icon: iCal(), lbl: 'Availability', p: 'calendar' },
+    { icon: iMoney(), lbl: 'Earnings', p: 'earnings' },
+    { icon: iMega(), lbl: 'Announcements', p: 'user-announcements' }
+  ];
+  const renterLinks = [
+    { icon: iHome(), lbl: 'Overview', p: 'overview' },
+    { icon: iSearch(), lbl: 'Browse Items', p: 'browse' },
+    { icon: iClip(), lbl: 'My Bookings', p: 'bookings' },
+    { icon: iStar(), lbl: 'Reviews', p: 'reviews' },
+    { icon: iMega(), lbl: 'Announcements', p: 'user-announcements' }
+  ];
+  const links = isOwner ? ownerLinks : renterLinks;
+
+  const handleNav = (p) => {
+    setPanel(p);
+    setMobileNavOpen(false);
+  };
+
+  const renderPanel = () => {
+    if (isOwner) {
+      if (panel === 'overview') return <OwnerOverview onNav={setPanel} />;
+      if (panel === 'my-items') return <MyListings onNav={setPanel} />;
+      if (panel === 'add-item') return <AddItem onNav={setPanel} />;
+      if (panel === 'requests') return <RequestsPanel />;
+      if (panel === 'calendar') return <CalendarPanel />;
+      if (panel === 'earnings') return <EarningsPanel />;
+      if (panel === 'user-announcements') return <UserAnnouncements />;
+      if (panel === 'profile') return <ProfilePanel />;
     } else {
-      if(panel==='overview') return <RenterOverview onNav={setPanel} />;
-      if(panel==='browse') return <BrowseItems />;
-      if(panel==='bookings') return <MyBookings />;
-      if(panel==='reviews') return <MyReviews />;
-      if(panel==='user-announcements') return <UserAnnouncements />;
-      if(panel==='profile') return <ProfilePanel />;
+      if (panel === 'overview') return <RenterOverview onNav={setPanel} />;
+      if (panel === 'browse') return <BrowseItems />;
+      if (panel === 'bookings') return <MyBookings />;
+      if (panel === 'reviews') return <MyReviews />;
+      if (panel === 'user-announcements') return <UserAnnouncements />;
+      if (panel === 'profile') return <ProfilePanel />;
     }
     return null;
   };
+
   return (
     <div>
       <Navbar />
+      <div className="mobile-topbar">
+        <button className="mobile-hamburger" onClick={() => setMobileNavOpen(!mobileNavOpen)}>
+          ☰ <span>Menu</span>
+        </button>
+        <div style={{ fontSize: '.84rem', fontWeight: 600, color: 'var(--orange)', display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span>{links.find(l => l.p === panel)?.lbl || 'Dashboard'}</span>
+          {panel !== 'requests' && pendingRequestsCount > 0 && isOwner && (
+            <span className="sb-badge" style={{ margin: 0 }}>{pendingRequestsCount}</span>
+          )}
+        </div>
+      </div>
+      {mobileNavOpen && <div className="sidebar-backdrop" onClick={() => setMobileNavOpen(false)} />}
       <div className="dash">
-        <div className="sidebar">
-          <div style={{padding:'8px 11px 18px',borderBottom:'1px solid var(--border)',marginBottom:10}}>
-            <div style={{fontSize:'.74rem',color:'var(--muted2)',marginBottom:3}}>Signed in as</div>
-            <div style={{fontWeight:600,color:'#fff',fontSize:'.88rem'}}>{user.firstName} {user.lastName}</div>
-            <div style={{fontSize:'.74rem',color:'var(--muted)',marginTop:1}}>{isOwner?'Item Owner':'Renter'} · {user.location}</div>
+        <div className={`sidebar${mobileNavOpen ? ' open' : ''}`}>
+          <div style={{ padding: '8px 11px 18px', borderBottom: '1px solid var(--border)', marginBottom: 10 }}>
+            <div style={{ fontSize: '.74rem', color: 'var(--muted2)', marginBottom: 3 }}>Signed in as</div>
+            <div style={{ fontWeight: 600, color: '#fff', fontSize: '.88rem' }}>{user.firstName} {user.lastName}</div>
+            <div style={{ fontSize: '.74rem', color: 'var(--muted)', marginTop: 1 }}>{isOwner ? 'Item Owner' : 'Renter'} · {user.location}</div>
           </div>
-          {links.map(l=><button key={l.p} className={`sbb${panel===l.p?' act':''}`} onClick={()=>setPanel(l.p)}>{l.icon}{l.lbl}</button>)}
-          <div style={{flex:1}} />
-          <button className={`sbb${panel==='profile'?' act':''}`} onClick={()=>setPanel('profile')}>{iUser()}Profile</button>
+          {links.map(l => (
+            <button key={l.p} className={`sbb${panel === l.p ? ' act' : ''}`} onClick={() => handleNav(l.p)}>
+              {l.icon}
+              <span>{l.lbl}</span>
+              {l.badge != null && <span className="sb-badge">{l.badge}</span>}
+            </button>
+          ))}
+          <div style={{ flex: 1 }} />
+          <button className={`sbb${panel === 'profile' ? ' act' : ''}`} onClick={() => handleNav('profile')}>
+            {iUser()}<span>Profile</span>
+          </button>
         </div>
         <div className="mc">{renderPanel()}</div>
       </div>
     </div>
   );
 }
+
